@@ -2,14 +2,20 @@
 pragma solidity >=0.4.23 < 0.9.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-contract Fundraiser is Ownable  {
+contract Fundraiser is Ownable {
+  using SafeMath for uint256; 
+
   struct Donation {
     uint256 value;
     // uint256 conversionFactor;
     uint256 date;
   }
   mapping(address => Donation[]) private _donations;
+
+  event DonationReceived(address indexed donor, uint256 value);
+  event Withdraw(uint256 amount);
 
   string public name;
   string public url;
@@ -18,6 +24,9 @@ contract Fundraiser is Ownable  {
 
   address payable public beneficiary;
   address public custodian;
+
+  uint256 public totalDonations;
+  uint256 public donationsCount;
 
   constructor(
     string memory _name,
@@ -48,7 +57,12 @@ contract Fundraiser is Ownable  {
       value: msg.value,
       date: block.timestamp
     });
+
     _donations[msg.sender].push(donation);
+    totalDonations = totalDonations.add(msg.value);
+    donationsCount++;
+
+    emit DonationReceived(msg.sender, msg.value);
   }
 
   function myDonations() public view returns(
@@ -66,5 +80,17 @@ contract Fundraiser is Ownable  {
     }
 
     return (values, dates);
+  }
+
+  function withdraw() public onlyOwner {
+    uint256 balance = address(this).balance;
+    beneficiary.transfer(balance);
+
+    emit Withdraw(balance);
+  }
+
+  fallback() external payable {
+    totalDonations = totalDonations.add(msg.value);
+    donationsCount++;
   }
 }
